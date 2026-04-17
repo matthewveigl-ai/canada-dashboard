@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Canada — Aging Workforce & Immigration Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{--bg:#f5f2ec;--surface:#fdfcf9;--border:#e2ddd4;--text:#1a1814;--muted:#7a7570;--accent:#c8441a;--accent2:#2a5298;--accent3:#1a7a4a;--gold:#b8860b;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;}
+header{background:var(--text);color:#fdfcf9;padding:1.75rem 2.5rem 1.4rem;}
+.hl h1{font-family:'DM Serif Display',serif;font-size:clamp(1.3rem,2.6vw,2rem);font-weight:400;line-height:1.15;margin-bottom:.3rem;}
+.hl p{font-size:12px;color:#a09890;font-weight:300;}
+.hr{display:flex;gap:1.8rem;}
+.kpi{text-align:right;}
+.kv{font-family:'DM Serif Display',serif;font-size:1.8rem;line-height:1;color:#fdfcf9;}
+.kl{font-size:10px;color:#a09890;text-transform:uppercase;letter-spacing:.08em;margin-top:3px;}
+.kd{font-size:10px;color:#e8896a;margin-top:2px;}
+.ctrl{background:var(--surface);border-bottom:1px solid var(--border);padding:.7rem 2.5rem;display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;}
+.ctrl label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-right:.4rem;}
+.ctrl select{font-family:'DM Sans',sans-serif;font-size:13px;border:1px solid var(--border);border-radius:4px;padding:4px 9px;background:var(--surface);color:var(--text);cursor:pointer;outline:none;}
+.fi{margin-left:auto;font-size:11px;color:var(--muted);font-style:italic;}
+main{padding:1.25rem 2.5rem 2.5rem;display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;max-width:1200px;margin-left:auto;margin-right:auto;}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:1.25rem 1.5rem 1.4rem;display:flex;flex-direction:column;}
+.wide{grid-column:1/-1;}
+.ph{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.9rem;padding-bottom:.7rem;border-bottom:1px solid var(--border);}
+.pt{font-family:'DM Serif Display',serif;font-size:1.05rem;font-weight:400;line-height:1.2;}
+.ps{font-size:11px;color:var(--muted);margin-top:3px;}
+.tag{font-size:10px;text-transform:uppercase;letter-spacing:.08em;padding:3px 9px;border-radius:99px;font-weight:500;white-space:nowrap;}
+.tr{background:#fdecea;color:#c8441a;}.tb{background:#e8eef8;color:#2a5298;}.tg{background:#e6f4ec;color:#1a7a4a;}.to{background:#fdf6e3;color:#b8860b;}.tp{background:#f3eefe;color:#534ab7;}
+.cw{position:relative;flex:1;min-height:200px;}
+.leg{display:flex;flex-wrap:wrap;gap:12px;margin-top:.7rem;padding-top:.6rem;border-top:1px solid var(--border);}
+.li{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);}
+.ld{width:10px;height:10px;border-radius:2px;flex-shrink:0;}
+.is{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:6px;overflow:hidden;grid-column:1/-1;}
+.ic{background:var(--surface);padding:1rem 1.25rem;}
+.in{font-family:'DM Serif Display',serif;font-size:1.7rem;line-height:1;margin-bottom:3px;}
+.il{font-size:12px;color:var(--muted);line-height:1.4;}
+.isrc{font-size:10px;color:#b0aaa5;margin-top:5px;}
+.chain{display:flex;align-items:stretch;gap:0;grid-column:1/-1;border:1px solid var(--border);border-radius:6px;overflow:hidden;}
+.cnode{flex:1;padding:.9rem 1.1rem;background:var(--surface);position:relative;}
+.cnode+.cnode::before{content:'→';position:absolute;left:-10px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--border);z-index:1;}
+.cnode-title{font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:5px;}
+.cnode-val{font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text);line-height:1.25;margin-bottom:4px;}
+.cnode-sub{font-size:11px;color:var(--muted);line-height:1.4;}
+.cnode.active{background:var(--text);}
+.cnode.active .cnode-title{color:#a09890;}
+.cnode.active .cnode-val{color:#fdfcf9;}
+.cnode.active .cnode-sub{color:#a09890;}
+/* map */
+.ml{display:flex;gap:1rem;flex:1;min-height:260px;}
+.msw{flex:1;min-width:0;display:flex;flex-direction:column;}
+#mapsvg{width:100%;flex:1;min-height:220px;}
+#mapsvg path{cursor:pointer;transition:opacity .15s;}
+#mapsvg path:hover{opacity:.75;}
+.mbtns{display:flex;gap:6px;margin-bottom:.6rem;flex-wrap:wrap;}
+.mt{font-size:11px;padding:3px 10px;border-radius:99px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;}
+.mt.active{background:var(--text);color:#fdfcf9;border-color:var(--text);}
+.ms{width:148px;flex-shrink:0;display:flex;flex-direction:column;gap:8px;}
+.msc{background:var(--bg);border-radius:4px;padding:9px 11px;border:1px solid var(--border);}
+.msv{font-family:'DM Serif Display',serif;font-size:1.3rem;line-height:1;margin-bottom:2px;}
+.msl{font-size:11px;color:var(--muted);line-height:1.4;}
+#mapLoading{font-size:12px;color:var(--muted);padding:2rem;text-align:center;}
+.tooltip{position:fixed;background:#1a1814;color:#fdfcf9;padding:6px 10px;border-radius:4px;font-size:12px;pointer-events:none;opacity:0;transition:opacity .15s;z-index:100;}
+.sector-item{display:flex;flex-direction:column;gap:4px;margin-bottom:10px;}
+.sector-label{font-size:12px;color:var(--text);font-weight:500;display:flex;justify-content:space-between;}
+.sector-label span{color:var(--muted);font-weight:400;font-size:11px;}
+.sector-bar-wrap{height:16px;background:#ede9e1;border-radius:3px;overflow:hidden;}
+.sector-bar{height:100%;border-radius:3px;}
+.sector-sub{font-size:10px;color:var(--muted);}
+.sector-item{cursor:default;}
+.sector-item.dimmed{opacity:0.25;}
+.sector-item.highlighted .sector-bar{filter:brightness(1.2);}
+.sector-item:hover .sector-bar{filter:brightness(1.15);}
+.stip{position:fixed;background:#1a1814;color:#fdfcf9;padding:8px 12px;border-radius:5px;font-size:12px;line-height:1.5;max-width:280px;pointer-events:none;opacity:0;transition:opacity .15s;z-index:200;}
+footer{padding:.85rem 2.5rem 1.3rem;border-top:1px solid var(--border);font-size:11px;color:var(--muted);display:flex;gap:2rem;flex-wrap:wrap;}
+footer strong{font-weight:500;color:var(--text);}
+@media(max-width:768px){main{grid-template-columns:1fr;padding:1rem;}.wide{grid-column:1;}.is,.chain{flex-direction:column;}.is{grid-template-columns:1fr;}header{padding:1.5rem 1rem 1rem;}.ctrl{padding:.65rem 1rem;}footer{padding:1rem;}.ml{flex-direction:column;}.ms{width:100%;}}
+</style>
+</head>
+<body>
+
+<div class="tooltip" id="tooltip"></div>
+<div class="stip" id="stip"></div>
+
+<header>
+  <div class="hl">
+    <h1>Canada — Aging Workforce &amp; Immigration Dependency</h1>
+    <p>MIS 6313 / IMS 6304 · Individual Assignment 5 · Matthew Key · Spring 2026</p>
+  </div>
+</header>
+
+<main>
+  <div class="is" style="grid-template-columns:repeat(4,1fr);">
+    <div class="ic"><div class="in" style="color:var(--gold);">1.26</div><div class="il">Fertility rate — lowest on record · needs 2.1 to replace</div><div class="isrc">Statistics Canada, 2023</div></div>
+    <div class="ic"><div class="in" style="color:var(--accent3);">~100%</div><div class="il">Of population growth now comes from immigration</div><div class="isrc">Statistics Canada, 2024</div></div>
+    <div class="ic"><div class="in" style="color:var(--accent2);">2.7M</div><div class="il">More aged 60–64 will retire by 2030 — the largest wave yet</div><div class="isrc">RBC Economics, 2025</div></div>
+    <div class="ic"><div class="in" style="color:var(--accent);">31.5%</div><div class="il">Dependency ratio — all-time high</div><div class="isrc">World Bank, 2024</div></div>
+  </div>
+
+  <div class="chain wide">
+    <div class="cnode active"><div class="cnode-title">Problem</div><div class="cnode-val">Aging workforce</div><div class="cnode-sub">Dependency ratio 31.5% — all-time high. 2.7M more retiring by 2030.</div></div>
+    <div class="cnode"><div class="cnode-title">Consequence</div><div class="cnode-val">Labour shortage</div><div class="cnode-sub">Participation rate at 20-yr low. Energy, mining &amp; tech face critical gaps.</div></div>
+    <div class="cnode"><div class="cnode-title">Old response</div><div class="cnode-val">Mass immigration</div><div class="cnode-sub">~1M arrivals in 2 years overwhelmed housing &amp; public services.</div></div>
+    <div class="cnode"><div class="cnode-title">New strategy</div><div class="cnode-val">Targeted Recruitment of Foreign Talent</div><div class="cnode-sub">IRCC now issues sector-specific visas for energy, mining &amp; tech workers only.</div></div>
+    <div class="cnode"><div class="cnode-title">Goal</div><div class="cnode-val">Grow the Economy, Fund the Dependants</div><div class="cnode-sub">Energy + agriculture + quantum/AI — backed by $1T Maple 8 investment abroad.</div></div>
+  </div>
+
+  <div class="panel">
+    <div class="ph">
+      <div><div class="pt">Canada's Population Is Aging</div><div class="ps">Average age of all Canadians &amp; share of population over 65 — as both rise, the workforce shrinks relative to retirees</div></div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
+        <span class="tag tr">Aging trend</span>
+      </div>
+    </div>
+    <div class="cw"><canvas id="aC" role="img" aria-label="Median age and 65+ share trend for Canada 2000-2024"></canvas></div>
+    <div class="leg">
+      <span class="li"><span class="ld" style="background:#c8441a;"></span>Median age (left axis)</span>
+      <span class="li"><span style="display:inline-block;width:16px;height:0;border-top:2px dashed #2a5298;margin-right:5px;vertical-align:middle;"></span>Population 65+% (right axis)</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ph"><div><div class="pt">Dependants per working adult</div><div class="ps">Old-age dependency ratio, Canada — dependants per 100 working-age Canadians</div></div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);cursor:pointer;">
+          <input type="checkbox" id="dpF" onchange="buildD()" style="cursor:pointer;">
+          Include 2030–2060 projections
+        </label>
+        <span class="tag to">Economic pressure</span>
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--text);background:var(--bg);border-radius:4px;padding:8px 12px;margin-bottom:.75rem;border-left:3px solid var(--gold);">More retirees, fewer workers — the number depending on working Canadians is growing fast.</div>
+    <div class="cw"><canvas id="dC" role="img" aria-label="Old-age dependency ratio with optional projections to 2060"></canvas></div>
+    <div class="leg">
+      <span class="li"><span class="ld" style="background:#b8860b;"></span>Historical</span>
+      <span class="li"><span class="ld" style="background:#ddd0a8;"></span>Projected (2030–2060)</span>
+    </div>
+  </div>
+
+  <!-- Real D3 choropleth map -->
+  <div class="panel">
+    <div class="ph"><div><div class="pt">Aging across Canada — provincial map</div><div class="ps">Click a province · toggle metric below</div></div><span class="tag tb">Regional map</span></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:.75rem;">
+      <div style="background:#fdecea;border-radius:4px;padding:8px 10px;border-left:3px solid #c8441a;">
+        <div style="font-size:10px;color:#a32d2d;text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;">Most aged — fewest immigrants</div>
+        <div style="font-size:13px;font-weight:500;color:var(--text);">NL — 22.8% over 65</div>
+        <div style="font-size:11px;color:var(--muted);">Only 7.2% immigrants — aging without immigration relief</div>
+      </div>
+      <div style="background:#e6f4ec;border-radius:4px;padding:8px 10px;border-left:3px solid #1a7a4a;">
+        <div style="font-size:10px;color:#1a7a4a;text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;">Least aged — most immigrants</div>
+        <div style="font-size:13px;font-weight:500;color:var(--text);">AB — 13.4% over 65</div>
+        <div style="font-size:11px;color:var(--muted);">26.8% immigrants — immigration keeping workforce young</div>
+      </div>
+    </div>
+    <div class="mbtns">
+      <button class="mt active" onclick="setM('pop65',this)">% aged 65+</button>
+      <button class="mt" onclick="setM('medage',this)">Median age</button>
+      <button class="mt" onclick="setM('immig',this)">% immigrants</button>
+    </div>
+    <div class="ml">
+      <div class="msw">
+        <div id="mapLoading">Loading map…</div>
+        <svg id="mapsvg" style="display:none;"></svg>
+        <div style="margin-top:6px;">
+          <div style="height:8px;border-radius:2px;" id="mapLegBar"></div>
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:2px;">
+            <span id="lMin"></span><span id="lMid"></span><span id="lMax"></span>
+          </div>
+        </div>
+      </div>
+      <div class="ms">
+        <div class="msc"><div class="msv" id="sv1">—</div><div class="msl" id="sl1">Click a province</div></div>
+        <div class="msc"><div class="msv" id="sv2">—</div><div class="msl" id="sl2">to see details</div></div>
+        <div class="msc"><div class="msv" id="sv3">—</div><div class="msl" id="sl3"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ph">
+      <div><div class="pt">Demographics: Falling Births and Rising Immigration</div><div class="ps">Annual arrivals &amp; fertility rate 2000–2027 · below 2.1 replacement rate, immigration is a structural necessity</div></div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <select id="yrF2" onchange="buildI()" style="font-family:'DM Sans',sans-serif;font-size:11px;border:1px solid var(--border);border-radius:4px;padding:3px 8px;background:var(--surface);color:var(--muted);cursor:pointer;outline:none;">
+          <option value="2000">2000 – 2027</option>
+          <option value="2010">2010 – 2027</option>
+          <option value="2015">2015 – 2027</option>
+        </select>
+        <span class="tag tg">Immigration shift</span>
+      </div>
+    </div>
+    <div class="cw"><canvas id="iC" role="img" aria-label="Immigration volume 2000-2027 with mass surge and policy correction phases"></canvas></div>
+    <div class="leg">
+      <span class="li"><span class="ld" style="background:#1a7a4a;"></span>Permanent residents (000s)</span>
+      <span class="li"><span class="ld" style="background:rgba(200,68,26,0.75);"></span>Mass surge phase</span>
+      <span class="li"><span class="ld" style="background:#a8d5bc;"></span>Projected target</span>
+      <span class="li"><span style="display:inline-block;width:16px;height:0;border-top:2px dashed #c8441a;margin-right:5px;vertical-align:middle;"></span>Fertility rate (right axis) · replacement = 2.1</span>
+    </div>
+  </div>
+
+  <div class="panel wide">
+    <div class="ph"><div><div class="pt">Sector Labour Gaps: Where Canada Needs Workers</div><div class="ps">Canadian Consulate Houston briefing (Spring 2026) · IRCC "pull" model · Hover any bar for detail</div></div><span class="tag tp">Sector demand</span></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1.25rem;flex:1;align-items:start;">
+      <div>
+        <div style="font-size:12px;font-weight:500;color:var(--text);margin-bottom:.6rem;padding-bottom:.4rem;border-bottom:1px solid var(--border);">Energy &amp; resources</div>
+        <div class="sector-item" data-sector="Oil & gas workers" data-tip="Canada exports ~4M barrels/day. Average worker age is 47 — the highest of any sector. IRCC is fast-tracking visas for certified tradespeople and engineers."><div class="sector-label">Oil &amp; gas workers <span>AB, SK, NL</span></div><div class="sector-bar-wrap"><div class="sector-bar" style="width:88%;background:#b8860b;"></div></div><div class="sector-sub">Avg age 47 · 32% retire by 2030</div></div>
+        <div class="sector-item" data-sector="Mining & rare earths" data-tip="Canada holds 19 of 34 critical minerals on the US priority list. Mining is central to the US chip and EV supply chain — making this a national security priority for both countries."><div class="sector-label">Mining &amp; rare earths <span>NT, NU, BC</span></div><div class="sector-bar-wrap"><div class="sector-bar" style="width:76%;background:#b8860b;"></div></div><div class="sector-sub">Critical for US chip supply chain</div></div>
+        <div class="sector-item" data-sector="Clean energy techs" data-tip="Canada has committed to net-zero by 2050. Clean energy infrastructure — solar, wind, grid storage, and EV battery plants — requires specialized engineers Canada cannot currently train fast enough."><div class="sector-label">Clean energy techs <span>National</span></div><div class="sector-bar-wrap"><div class="sector-bar" style="width:65%;background:#b8860b;"></div></div><div class="sector-sub">EV battery &amp; grid infrastructure</div></div>
+        <div class="sector-item" data-sector="Pipeline & LNG" data-tip="Trans Mountain pipeline expansion completed 2024. LNG Canada Phase 1 now operational. Canada is reducing its dependence on US-only energy exports by opening Pacific routes to Asia."><div class="sector-label">Pipeline &amp; LNG <span>BC, AB</span></div><div class="sector-bar-wrap"><div class="sector-bar" style="width:58%;background:#b8860b;"></div></div><div class="sector-sub">Export diversification priority</div></div>
+      </div>
+      <div>
+        <div style="font-size:12px;font-weight:500;color:var(--text);margin-bottom:.6rem;padding-bottom:.4rem;border-bottom:1px solid var(--border);">Technology &amp; digital</div>
+        <div class="sector-item" data-sector="AI & machine learning" data-tip="Canada is home to Geoffrey Hinton (University of Toronto) and the Vector Institute — a world-leading AI research hub. The federal government has committed $4.5B to AI, including compute infrastructure and talent retention."><div class="sector-label">AI &amp; machine learning <span>ON, QC, BC</span></div><div class="sector-bar-wrap"><div class="sector-bar" style="width:92%;background:#534ab7;"></div></div><div class="sector-sub">$4.5B federal AI investment</div></div>
+        <div class="sector-item" data-sector="Quantum computing" data-tip="Canada's National Quantum Strategy (2023) targets leadership in quantum computing and cryptography. The Perimeter Institute and Institut quantique are global hubs, but domestic talent supply is limited."><div class="sector-label">Quantum computing <span>ON, QC</span></div><div class="sector-bar-wrap"><div class="sector-bar" style="width:80%;background:#534ab7;"></div></div><div class="sector-sub">National quantum strategy active</div></div>
+        <div class="sector-item" data-sector="Cybersecurity" data-tip="Canada's new 5% GDP defense target (3.5% core + 1.5% dual-use) includes cyber capabilities. The Consulate briefing specifically flagged cybersecurity as a cross-border priority tied to fentanyl and border security cooperation."><div class="sector-label">Cybersecurity <span>National</span></div><div class="sector-bar-wrap"><div class="sector-bar" style="width:72%;background:#534ab7;"></div></div><div class="sector-sub">Tied to 5% NATO defense target</div></div>
+        <div class="sector-item" data-sector="Data centre ops" data-tip="Canada's cold climate reduces data centre cooling costs by up to 30% vs. US locations. Major hyperscalers (Microsoft, Google, AWS) are expanding Canadian data centre footprints, creating sustained demand for operations talent."><div class="sector-label">Data centre ops <span>All provinces</span></div><div class="sector-bar-wrap"><div class="sector-bar" style="width:60%;background:#534ab7;"></div></div><div class="sector-sub">Cold climate = natural advantage</div></div>
+      </div>
+      <div>
+        <div style="font-size:12px;font-weight:500;color:var(--text);margin-bottom:.6rem;padding-bottom:.4rem;border-bottom:1px solid var(--border);">Healthcare &amp; agriculture</div>
+        <div class="sector-item" data-sector="Physicians & nurses" data-tip="With 1 in 5 Canadians now over 65, healthcare demand is surging. Per-capita healthcare costs for seniors are 4–5x higher than for working-age adults. Healthcare spending is projected to rise 88% by 2040."><div class="sector-label">Physicians &amp; nurses <span>National</span></div><div class="sector-bar-wrap"><div class="sector-bar" style="width:95%;background:#c8441a;"></div></div><div class="sector-sub">Aging pop. = 88% cost surge by 2040</div></div>
+        <div class="sector-item" data-sector="Aged care workers" data-tip="Aged care is the fastest-growing labour category in Canada. The number of Canadians aged 85+ has doubled since 2001 and could triple by 2046 — requiring a massive expansion of residential and home care workers."><div class="sector-label">Aged care workers <span>National</span></div><div class="sector-bar-wrap"><div class="sector-bar" style="width:89%;background:#c8441a;"></div></div><div class="sector-sub">Fastest-growing labour need</div></div>
+        <div class="sector-item" data-sector="Agricultural workers" data-tip="The Consulate described agriculture as a 'national security need — feeding people.' Canada is one of the world's top 5 food exporters. Seasonal and permanent farm labour shortages are acute in Saskatchewan, Alberta, and Ontario."><div class="sector-label">Agricultural workers <span>SK, AB, ON</span></div><div class="sector-bar-wrap"><div class="sector-bar" style="width:68%;background:#1a7a4a;"></div></div><div class="sector-sub">Food security = national priority</div></div>
+        <div class="sector-item" data-sector="Agri-tech specialists" data-tip="Canada is investing in precision agriculture to boost export yields and reduce reliance on manual labour. Agri-tech roles — drone operators, soil data analysts, ag-software engineers — are in short supply across the Prairies."><div class="sector-label">Agri-tech specialists <span>Prairies</span></div><div class="sector-bar-wrap"><div class="sector-bar" style="width:52%;background:#1a7a4a;"></div></div><div class="sector-sub">Precision farming + export growth</div></div>
+      </div>
+    </div>
+    <div style="margin-top:1rem;padding-top:.75rem;border-top:1px solid var(--border);font-size:11px;color:var(--muted);">Bar length = relative labour gap severity · Sources: IRCC sector priority list, Statistics Canada LFS, Govt of Canada Horizons (2024), Canadian Consulate Houston briefing (Spring 2026)</div>
+  <!-- Panel 5: Immigrant category breakdown -->
+  <div class="panel wide">
+    <div class="ph">
+      <div>
+        <div class="pt">Who is Canada letting in — and how is that changing?</div>
+        <div class="ps">Permanent resident admissions by category, 2023 · and the policy shift toward economic immigration by 2027–28</div>
+      </div>
+      <span class="tag tp">Immigration mix</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1.5rem;align-items:start;">
+
+      <!-- Donut chart: fixed size, legend directly below -->
+      <div>
+        <div style="font-size:12px;font-weight:500;color:var(--text);margin-bottom:.75rem;padding-bottom:.4rem;border-bottom:1px solid var(--border);">2023 admissions by category (471k total)</div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:10px;">
+          <div style="position:relative;width:200px;height:200px;flex-shrink:0;">
+            <canvas id="donutC" width="200" height="200" role="img" aria-label="Donut chart: 58% skilled workers, 26% family members, 16% refugees"></canvas>
+            <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;">
+              <div style="font-family:'DM Serif Display',serif;font-size:1.4rem;line-height:1;color:var(--text);">471k</div>
+              <div style="font-size:9px;color:var(--muted);margin-top:2px;">total PRs</div>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;width:200px;">
+            <div style="display:flex;align-items:center;gap:6px;font-size:12px;">
+              <span style="width:10px;height:10px;border-radius:2px;background:#1a7a4a;flex-shrink:0;"></span>
+              <span style="flex:1;color:var(--text);">Skilled workers</span>
+              <span style="font-weight:500;">58%</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;font-size:12px;">
+              <span style="width:10px;height:10px;border-radius:2px;background:#2a5298;flex-shrink:0;"></span>
+              <span style="flex:1;color:var(--text);">Family members</span>
+              <span style="font-weight:500;">26%</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;font-size:12px;">
+              <span style="width:10px;height:10px;border-radius:2px;background:#b8860b;flex-shrink:0;"></span>
+              <span style="flex:1;color:var(--text);">Refugees</span>
+              <span style="font-weight:500;">16%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Policy shift bars -->
+      <div>
+        <div style="font-size:12px;font-weight:500;color:var(--text);margin-bottom:.75rem;padding-bottom:.4rem;border-bottom:1px solid var(--border);">Skilled worker share — actual vs. target</div>
+        <div style="display:flex;flex-direction:column;gap:14px;">
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px;"><span style="color:var(--muted);">2023 (actual)</span><span style="font-weight:500;">58%</span></div>
+            <div style="height:18px;background:#ede9e1;border-radius:3px;overflow:hidden;"><div style="width:58%;height:100%;background:#1a7a4a;border-radius:3px;"></div></div>
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px;"><span style="color:var(--muted);">2027–28 (target)</span><span style="font-weight:500;">64%</span></div>
+            <div style="height:18px;background:#ede9e1;border-radius:3px;overflow:hidden;"><div style="width:64%;height:100%;background:#0f6e56;border-radius:3px;"></div></div>
+          </div>
+        </div>
+        <div style="margin-top:1.25rem;padding-bottom:.4rem;border-bottom:1px solid var(--border);font-size:12px;font-weight:500;color:var(--text);margin-bottom:.75rem;">International student permits</div>
+        <div style="display:flex;flex-direction:column;gap:14px;">
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px;"><span style="color:var(--muted);">2023 peak</span><span style="font-weight:500;">1.04M</span></div>
+            <div style="height:18px;background:#ede9e1;border-radius:3px;overflow:hidden;"><div style="width:100%;height:100%;background:rgba(200,68,26,0.7);border-radius:3px;"></div></div>
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px;"><span style="color:var(--muted);">2024 (after crackdown)</span><span style="font-weight:500;">~360k</span></div>
+            <div style="height:18px;background:#ede9e1;border-radius:3px;overflow:hidden;"><div style="width:35%;height:100%;background:#c8441a;border-radius:3px;"></div></div>
+          </div>
+        </div>
+        <div style="margin-top:.75rem;font-size:11px;color:var(--muted);">35% cut — some colleges were admitting international students with no real education, just using student visas as a shortcut to permanent residency</div>
+      </div>
+
+      <!-- Key insight callouts -->
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div style="font-size:12px;font-weight:500;color:var(--text);margin-bottom:.25rem;padding-bottom:.4rem;border-bottom:1px solid var(--border);">What this means</div>
+        <div style="background:var(--bg);border-radius:4px;padding:10px 12px;border-left:3px solid #1a7a4a;">
+          <div style="font-size:12px;font-weight:500;color:var(--text);margin-bottom:3px;">Canada wants workers, not just residents</div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.5;">Targeting 64% skilled worker share by 2027–28 — the highest in decades. Immigrants are selected based on specific jobs waiting for them.</div>
+        </div>
+        <div style="background:var(--bg);border-radius:4px;padding:10px 12px;border-left:3px solid #c8441a;">
+          <div style="font-size:12px;font-weight:500;color:var(--text);margin-bottom:3px;">Closing the student visa backdoor</div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.5;">Some colleges issued visas with little academic value as a path to residency. IRCC cut approvals 35% in 2024 and now ties permits to accredited programs only.</div>
+        </div>
+        <div style="background:var(--bg);border-radius:4px;padding:10px 12px;border-left:3px solid #2a5298;">
+          <div style="font-size:12px;font-weight:500;color:var(--text);margin-bottom:3px;">Immigration as a hiring pipeline</div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.5;">IRCC works directly with energy, mining, and tech employers — visas only issued where a verified skills gap exists.</div>
+        </div>
+      </div>
+
+    </div>
+    <div style="margin-top:1rem;padding-top:.75rem;border-top:1px solid var(--border);font-size:11px;color:var(--muted);">Sources: IRCC 2024 Annual Report to Parliament · Immigration, Refugees and Citizenship Canada Levels Plan 2026–2028 · Canadian Consulate Houston briefing (Spring 2026)</div>
+  </div>
+
+  <!-- Panel 6: Act 5 — Can the strategy work? -->
+  <div class="panel wide">
+    <div class="ph">
+      <div>
+        <div class="pt">Can the strategy work? Labour force &amp; economic outlook</div>
+        <div class="ps">Labour force participation rate &amp; GDP per capita (constant 2015 USD) · the two metrics that determine whether targeted immigration actually closes the gap</div>
+      </div>
+      <span class="tag tp">Outlook</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1rem;">
+      <div>
+        <div style="font-size:12px;font-weight:500;color:var(--text);margin-bottom:.6rem;">Labour force participation rate (%)</div>
+        <div style="position:relative;height:200px;"><canvas id="lfpC" role="img" aria-label="Labour force participation rate Canada 2008-2030"></canvas></div>
+      </div>
+      <div>
+        <div style="font-size:12px;font-weight:500;color:var(--text);margin-bottom:.6rem;">GDP per capita — constant 2015 USD</div>
+        <div style="position:relative;height:200px;"><canvas id="gdpC" role="img" aria-label="Canada GDP per capita 2000-2024"></canvas></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:12px;margin-bottom:1rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
+      <span style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);"><span style="width:10px;height:10px;border-radius:2px;background:#2a5298;flex-shrink:0;"></span>Historical</span>
+      <span style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);"><span style="display:inline-block;width:16px;height:0;border-top:2px dashed #2a5298;vertical-align:middle;"></span>Projected</span>
+      <span style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);"><span style="width:10px;height:10px;border-radius:2px;background:#1a7a4a;flex-shrink:0;"></span>GDP per capita</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;">
+      <div style="background:var(--bg);border-radius:4px;padding:10px 12px;border-left:3px solid #c8441a;">
+        <div style="font-size:12px;font-weight:500;color:var(--text);margin-bottom:3px;">Labour participation still falling</div>
+        <div style="font-size:11px;color:var(--muted);line-height:1.5;">Down from 67.3% in 2008 to 64.2% today. RBC projects a further 2+ point drop by 2030 as the last boomers exit. Targeted immigration alone cannot offset this at current volumes.</div>
+      </div>
+      <div style="background:var(--bg);border-radius:4px;padding:10px 12px;border-left:3px solid #b8860b;">
+        <div style="font-size:12px;font-weight:500;color:var(--text);margin-bottom:3px;">GDP per capita is stagnating</div>
+        <div style="font-size:11px;color:var(--muted);line-height:1.5;">GDP per capita shrank 1.4% in 2024 — the third consecutive year of per-person contraction. More total GDP masked by more people. Canada needs productivity gains, not just headcount.</div>
+      </div>
+      <div style="background:var(--bg);border-radius:4px;padding:10px 12px;border-left:3px solid #1a7a4a;">
+        <div style="font-size:12px;font-weight:500;color:var(--text);margin-bottom:3px;">The targeted strategy is still early</div>
+        <div style="font-size:11px;color:var(--muted);line-height:1.5;">The IRCC pivot only began in earnest in 2024–25. If economic-class share reaches 64% and sector gaps in energy, AI, and healthcare are filled, the participation floor could stabilise by 2030.</div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div><strong>Sources:</strong>
+    <a href="https://www150.statcan.gc.ca/t1/tbl1/en/tv.action?pid=1710000501" target="_blank" style="color:var(--muted);">Statistics Canada Table 17-10-0005-01 — Population estimates by age &amp; gender</a> ·
+    <a href="https://www150.statcan.gc.ca/t1/tbl1/en/tv.action?pid=1310041801" target="_blank" style="color:var(--muted);">Statistics Canada Table 13-10-0418-01 — Fertility rates (births per woman)</a> ·
+    <a href="https://www150.statcan.gc.ca/n1/daily-quotidien/240925/dq240925c-eng.htm" target="_blank" style="color:var(--muted);">Statistics Canada — Births and Stillbirths 2023 (lowest-ever fertility rate)</a> ·
+    <a href="https://www150.statcan.gc.ca/n1/daily-quotidien/240925/dq240925a-eng.htm" target="_blank" style="color:var(--muted);">Statistics Canada — Population estimates July 1, 2024</a> ·
+    <a href="https://data.worldbank.org/indicator/SP.POP.DPND.OL?locations=CA" target="_blank" style="color:var(--muted);">World Bank — Old-age dependency ratio, Canada</a> ·
+    <a href="https://data.worldbank.org/indicator/NY.GDP.PCAP.KD?locations=CA" target="_blank" style="color:var(--muted);">World Bank — GDP per capita constant 2015 USD, Canada</a> ·
+    <a href="https://www.rbc.com/en/economics/canadian-analysis/featured-analysis/insights/canada-faces-peak-aging-as-final-boomers-retire-and-population-growth-slows/" target="_blank" style="color:var(--muted);">RBC Economics — Canada faces peak aging as final boomers retire (2025)</a> ·
+    <a href="https://www.canada.ca/en/immigration-refugees-citizenship/corporate/publications-manuals/annual-report-parliament-immigration-2024.html" target="_blank" style="color:var(--muted);">IRCC — 2024 Annual Report to Parliament on Immigration</a> ·
+    <a href="https://horizons.service.canada.ca/en/2024/demographic-shifts/index.shtml" target="_blank" style="color:var(--muted);">Government of Canada Horizons — Global demographic shifts (2024)</a>
+  </div>
+  <div style="margin-top:.5rem;"><strong>Course:</strong> MIS 6313 / IMS 6304 Individual Dashboard #5 · Due April 26, 2026 · UTD EMBA Spring 2026</div>
+</footer>
+
+<script>
+// ── DATA ─────────────────────────────────────────────────────
+const YEARS=[2000,2002,2004,2006,2008,2010,2012,2014,2016,2018,2020,2022,2024];
+const MEDIAN=[36.8,37.3,37.9,38.5,39.1,39.7,40.1,40.4,40.6,40.8,41.0,41.0,40.3];
+const POP65=[12.7,13.0,13.3,13.6,13.9,14.4,15.1,16.0,16.9,17.2,18.1,19.0,18.7];
+const DHY=[2000,2005,2010,2015,2020,2024],DHV=[18.2,19.8,21.1,24.6,28.0,31.5];
+const DPY=[2030,2040,2050,2060],DPV=[36.0,41.0,45.0,48.6];
+const IY=[2000,2002,2004,2006,2008,2010,2012,2014,2016,2018,2020,2022,2023,2024,2025,2026,2027];
+const IHIST=[262,229,235,255,248,281,257,285,296,321,185,437,471,485,null,null,null];
+const IPROJ=[null,null,null,null,null,null,null,null,null,null,null,null,null,null,395,310,280];
+const IPHASE=[0,0,0,0,0,0,0,0,0,0,0,1,1,1,2,2,2];
+// Fertility rate (births per woman) — replacement level is 2.1
+const FERT=[1.49,1.52,1.53,1.58,1.60,1.63,1.61,1.57,1.54,1.49,1.40,1.33,1.26,null,null,null,null];
+
+// Province data keyed by Natural Earth name variants
+const PROV_DATA = {
+  'British Columbia':  {code:'BC',pop65:19.2,medage:43.1,immig:31.2,pop:'5.4M'},
+  'Alberta':           {code:'AB',pop65:13.4,medage:38.2,immig:26.8,pop:'4.7M'},
+  'Saskatchewan':      {code:'SK',pop65:17.2,medage:38.9,immig:15.4,pop:'1.2M'},
+  'Manitoba':          {code:'MB',pop65:17.3,medage:39.8,immig:20.5,pop:'1.4M'},
+  'Ontario':           {code:'ON',pop65:17.5,medage:41.5,immig:32.5,pop:'14.9M'},
+  'Quebec':            {code:'QC',pop65:20.8,medage:43.4,immig:16.3,pop:'8.8M'},
+  'New Brunswick':     {code:'NB',pop65:22.3,medage:47.2,immig:8.4,pop:'830k'},
+  'Prince Edward Island':{code:'PE',pop65:21.4,medage:45.8,immig:13.6,pop:'170k'},
+  'Nova Scotia':       {code:'NS',pop65:22.1,medage:46.5,immig:9.1,pop:'1.0M'},
+  'Newfoundland and Labrador':{code:'NL',pop65:22.8,medage:47.8,immig:7.2,pop:'530k'},
+  'Yukon':             {code:'YT',pop65:11.2,medage:37.5,immig:14.8,pop:'44k'},
+  'Northwest Territories':{code:'NT',pop65:9.8,medage:34.2,immig:13.5,pop:'45k'},
+  'Nunavut':           {code:'NU',pop65:3.5,medage:27.8,immig:2.1,pop:'40k'}
+};
+const MM={pop65:{suf:'%',lbl:'% aged 65+'},medage:{suf:' yrs',lbl:'Median age'},immig:{suf:'%',lbl:'% immigrants'}};
+
+// Sectors relevant to each province — used for cross-panel filtering
+const PROV_SECTORS = {
+  BC:['Oil & gas workers','Mining & rare earths','Clean energy techs','Pipeline & LNG','AI & machine learning','Data centre ops'],
+  AB:['Oil & gas workers','Pipeline & LNG','Clean energy techs','Agricultural workers','Agri-tech specialists'],
+  SK:['Oil & gas workers','Agricultural workers','Agri-tech specialists','Mining & rare earths'],
+  MB:['Agricultural workers','Agri-tech specialists','Aged care workers','Physicians & nurses'],
+  ON:['AI & machine learning','Quantum computing','Cybersecurity','Data centre ops','Physicians & nurses','Aged care workers'],
+  QC:['AI & machine learning','Quantum computing','Cybersecurity','Physicians & nurses','Aged care workers'],
+  NB:['Physicians & nurses','Aged care workers','Agricultural workers'],
+  PE:['Agricultural workers','Physicians & nurses','Aged care workers'],
+  NS:['Physicians & nurses','Aged care workers','Data centre ops'],
+  NL:['Oil & gas workers','Physicians & nurses','Aged care workers'],
+  YT:['Mining & rare earths','Clean energy techs'],
+  NT:['Mining & rare earths','Oil & gas workers','Clean energy techs'],
+  NU:['Mining & rare earths','Clean energy techs']
+};
+
+let curM='pop65', selProv=null, aC, dC, iC, mapFeatures=null;
+
+// ── COLOR ────────────────────────────────────────────────────
+function mkColor(t){
+  const r=Math.round(230+t*(4-230));
+  const g=Math.round(241+t*(44-241));
+  const b=Math.round(251+t*(83-251));
+  return `rgb(${r},${g},${b})`;
+}
+
+// ── MAP ──────────────────────────────────────────────────────
+function normalizeName(name) {
+  if (!name) return '';
+  const map = {
+    'Québec':'Quebec','Newfoundland':'Newfoundland and Labrador',
+    'Terre-Neuve-et-Labrador':'Newfoundland and Labrador',
+    'Nouveau-Brunswick':'New Brunswick','Nouvelle-Écosse':'Nova Scotia',
+    'Île-du-Prince-Édouard':'Prince Edward Island',
+    'Territoires du Nord-Ouest':'Northwest Territories',
+    'Colombie-Britannique':'British Columbia',
+  };
+  return map[name] || name;
+}
+
+function getProvData(feature) {
+  const raw = feature.properties?.name || feature.properties?.NAME || feature.id || '';
+  const norm = normalizeName(raw);
+  return PROV_DATA[norm] || null;
+}
+
+function paintMap() {
+  if (!mapFeatures) return;
+  const vals = Object.values(PROV_DATA).map(p => p[curM]);
+  const mn = Math.min(...vals), mx = Math.max(...vals);
+  const mid = ((mn+mx)/2).toFixed(1);
+  const suf = MM[curM].suf;
+  document.getElementById('lMin').textContent = mn.toFixed(1)+suf;
+  document.getElementById('lMid').textContent = mid+suf;
+  document.getElementById('lMax').textContent = mx.toFixed(1)+suf;
+  document.getElementById('mapLegBar').style.background = `linear-gradient(to right,rgb(230,241,251),rgb(4,44,83))`;
+
+  d3.select('#mapsvg').selectAll('path.province')
+    .attr('fill', d => {
+      const pd = getProvData(d);
+      if (!pd) return '#d8d4cc';
+      const t = (pd[curM] - mn) / (mx - mn);
+      return mkColor(t);
+    })
+    .attr('opacity', d => {
+      if (!selProv) return 1;
+      const pd = getProvData(d);
+      return (pd && pd.code === selProv) ? 1 : 0.45;
+    });
+
+  if (selProv) {
+    const pd = Object.values(PROV_DATA).find(p => p.code === selProv);
+    if (pd) showDetail(pd);
+  }
+}
+
+function showDetail(pd) {
+  document.getElementById('sv1').textContent = pd.pop65.toFixed(1)+'%';
+  document.getElementById('sl1').textContent = '% population aged 65+';
+  document.getElementById('sv2').textContent = pd.medage.toFixed(1)+' yrs';
+  document.getElementById('sl2').textContent = 'Median age';
+  document.getElementById('sv3').textContent = pd.immig.toFixed(1)+'%';
+  document.getElementById('sl3').textContent = '% immigrants · pop. '+pd.pop;
+}
+
+function updateCrossPanels(provCode) {
+  // 1. Sector panel: highlight relevant sectors, dim others
+  const relevant = PROV_SECTORS[provCode] || [];
+  document.querySelectorAll('.sector-item').forEach(el => {
+    const sectorName = el.dataset.sector || '';
+    if (relevant.includes(sectorName)) {
+      el.classList.remove('dimmed');
+      el.classList.add('highlighted');
+    } else {
+      el.classList.add('dimmed');
+      el.classList.remove('highlighted');
+    }
+  });
+
+  // 2. Immigration chart: add province immigrant share as annotation
+  const pd = Object.values(PROV_DATA).find(p => p.code === provCode);
+  if (pd && iC) {
+    const provImmig = pd.immig;
+    const provName = Object.entries(PROV_DATA).find(([k,v])=>v.code===provCode)?.[0]?.split(' ')[0] || provCode;
+    // Update chart subtitle to show province context
+    const immigSubtitle = document.querySelector('#iC')?.closest('.panel')?.querySelector('.ps');
+    if (immigSubtitle) {
+      immigSubtitle.textContent = `Showing national data · ${provName}: ${provImmig}% immigrants vs. national avg ~23% · click map to change province`;
+    }
+  }
+
+  // 3. Update the existing map side panel with province spotlight
+  if (pd) {
+    const pname = Object.keys(PROV_DATA).find(k => PROV_DATA[k].code === provCode) || provCode;
+    document.getElementById('sv1').textContent = pd.pop65.toFixed(1)+'%';
+    document.getElementById('sl1').textContent = '% aged 65+';
+    document.getElementById('sv2').textContent = pd.medage.toFixed(1)+' yrs';
+    document.getElementById('sl2').textContent = 'Median age';
+    document.getElementById('sv3').textContent = pd.immig.toFixed(1)+'%';
+    document.getElementById('sl3').textContent = '% immigrants · pop. '+pd.pop;
+    // Update the map panel subtitle to show active province and clear option
+    const mapSubtitle = document.querySelector('#mapsvg')?.closest('.panel')?.querySelector('.ps');
+    if (mapSubtitle) {
+      mapSubtitle.innerHTML = `<strong style="color:var(--text);">${pname}</strong> selected · sectors highlighted below · <a href="#" onclick="clearProvFilter();return false;" style="color:var(--accent2);">Clear filter</a>`;
+    }
+  }
+}
+
+function clearProvFilter() {
+  selProv = null;
+  paintMap();
+  document.querySelectorAll('.sector-item').forEach(el => {
+    el.classList.remove('dimmed','highlighted');
+  });
+  const banner = document.getElementById('provBanner');
+  if (banner) banner.remove();
+  const mapSubtitle = document.querySelector('#mapsvg')?.closest('.panel')?.querySelector('.ps');
+  if (mapSubtitle) mapSubtitle.textContent = 'Click a province · toggle metric below';
+  const immigSubtitle = document.querySelector('#iC')?.closest('.panel')?.querySelector('.ps');
+  if (immigSubtitle) immigSubtitle.textContent = 'Annual arrivals & fertility rate 2000–2027 · below 2.1 replacement rate, immigration is a structural necessity';
+  document.getElementById('sv1').textContent = '—'; document.getElementById('sl1').textContent = 'Click a province';
+  document.getElementById('sv2').textContent = '—'; document.getElementById('sl2').textContent = 'to see details';
+  document.getElementById('sv3').textContent = '—'; document.getElementById('sl3').textContent = '';
+}
+
+function setM(m, btn) {
+  curM = m;
+  document.querySelectorAll('.mt').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  paintMap();
+}
+
+function initMap() {
+  const url = 'https://cdn.jsdelivr.net/npm/datamaps@0.5.10/src/js/data/can.topo.json';
+  const tt = document.getElementById('tooltip');
+
+  fetch(url)
+    .then(r => { if (!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+    .then(topo => {
+      const key = Object.keys(topo.objects)[0];
+      mapFeatures = topojson.feature(topo, topo.objects[key]).features;
+
+      const svg = d3.select('#mapsvg');
+      const w = svg.node().clientWidth || 400;
+      const h = Math.max(w * 0.62, 200);
+      svg.attr('viewBox', `0 0 ${w} ${h}`);
+
+      const projection = d3.geoConicConformal()
+        .parallels([49, 77])
+        .rotate([96, -60])
+        .fitSize([w, h], {type:'FeatureCollection', features: mapFeatures});
+      const path = d3.geoPath(projection);
+
+      svg.selectAll('path.province')
+        .data(mapFeatures)
+        .join('path')
+        .attr('class','province')
+        .attr('d', path)
+        .attr('stroke', '#fdfcf9')
+        .attr('stroke-width', 0.6)
+        .on('click', function(event, d) {
+          const pd = getProvData(d);
+          if (!pd) return;
+          selProv = pd.code;
+          paintMap();
+          showDetail(pd);
+          updateCrossPanels(pd.code);
+        })
+        .on('mousemove', function(event, d) {
+          const pd = getProvData(d);
+          const name = d.properties?.name || d.properties?.NAME || d.id || '';
+          const val = pd ? pd[curM].toFixed(1)+MM[curM].suf : '—';
+          tt.style.opacity = '1';
+          tt.style.left = (event.clientX + 12) + 'px';
+          tt.style.top  = (event.clientY - 28) + 'px';
+          tt.innerHTML = `<strong>${name}</strong><br>${MM[curM].lbl}: ${val}<br>Population: ${pd ? pd.pop : '—'}`;
+        })
+        .on('mouseleave', () => { tt.style.opacity = '0'; });
+
+      document.getElementById('mapLoading').style.display = 'none';
+      svg.style('display', 'block');
+      paintMap();
+    })
+    .catch(err => {
+      document.getElementById('mapLoading').textContent = 'Map unavailable — check internet connection.';
+      console.error('Map load error:', err);
+    });
+}
+
+// ── CHARTS ───────────────────────────────────────────────────
+const gc='rgba(0,0,0,0.06)',tc='#7a7570';
+const tt2={backgroundColor:'#1a1814',titleFont:{family:'DM Sans',size:11},bodyFont:{family:'DM Sans',size:11}};
+function yrStart(){return 2000;}
+function hlVal(){return 'none';}
+function dpVal(){return document.getElementById('dpF').checked;}
+function yrStart2(){return parseInt(document.getElementById('yrF2').value);}
+
+function hlPlugin(id, labsRef) {
+  return {id:'hl'+id, beforeDraw(chart) {
+    const v = hlVal(); if (v==='none') return;
+    const lmap={'2008':'2008 Recession','2020':'COVID-19','2022':'Immig. surge'};
+    const idx = labsRef.findIndex(l => String(l)===v); if (idx<0) return;
+    const {ctx,chartArea,scales} = chart;
+    const x0 = scales.x.getPixelForValue(idx);
+    const bw = scales.x.width/labsRef.length;
+    ctx.save();
+    ctx.fillStyle='rgba(42,82,152,0.1)';
+    ctx.fillRect(x0-bw*.5, chartArea.top, bw, chartArea.bottom-chartArea.top);
+    ctx.fillStyle='#7a7570'; ctx.font='9px DM Sans,sans-serif';
+    ctx.fillText(lmap[v]||'', x0-bw*.4, chartArea.top+10);
+    ctx.restore();
+  }};
+}
+
+function buildA() {
+  const s=yrStart();
+  const ii=YEARS.reduce((a,y,i)=>{if(y>=s)a.push(i);return a;},[]);
+  const lb=ii.map(i=>YEARS[i]),md=ii.map(i=>MEDIAN[i]),p6=ii.map(i=>POP65[i]);
+  if(aC)aC.destroy();
+  aC=new Chart(document.getElementById('aC'),{
+    type:'line',
+    data:{labels:lb,datasets:[
+      {label:'Median age',data:md,borderColor:'#c8441a',backgroundColor:'rgba(200,68,26,0.07)',borderWidth:2.5,pointRadius:3,fill:true,tension:.35,yAxisID:'y'},
+      {label:'65+%',data:p6,borderColor:'#2a5298',borderDash:[5,3],borderWidth:2,pointRadius:3,fill:false,tension:.35,yAxisID:'y2'}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false},tooltip:{...tt2,callbacks:{label:c=>c.datasetIndex===0?` Median age: ${c.parsed.y.toFixed(1)} yrs`:` Pop. 65+: ${c.parsed.y.toFixed(1)}%`}}},
+      scales:{
+        x:{grid:{color:gc},ticks:{color:tc,font:{size:11},maxTicksLimit:8}},
+        y:{grid:{color:gc},ticks:{color:tc,font:{size:11},callback:v=>v.toFixed(1)},min:34,max:43,position:'left'},
+        y2:{grid:{display:false},ticks:{color:'#2a5298',font:{size:11},callback:v=>v+'%'},position:'right',min:10,max:24}
+      }}
+  });
+}
+
+function buildD() {
+  const s=yrStart(),pr=dpVal();
+  const hf=DHY.map((y,i)=>({y,v:DHV[i]})).filter(d=>d.y>=s);
+  const lb=hf.map(d=>d.y),hv=hf.map(d=>d.v),pv=hf.map(()=>null);
+  if(pr){DPY.forEach((y,i)=>{lb.push(y);hv.push(null);pv.push(DPV[i]);});}
+  if(dC)dC.destroy();
+  dC=new Chart(document.getElementById('dC'),{
+    type:'bar',
+    data:{labels:lb,datasets:[
+      {label:'Historical',data:hv,backgroundColor:'#b8860b',borderRadius:3,borderSkipped:false},
+      {label:'Projected',data:pv,backgroundColor:'#ddd0a8',borderRadius:3,borderSkipped:false}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{...tt2,callbacks:{label:c=>c.parsed.y!=null?` ${c.parsed.y.toFixed(1)} per 100 workers`:''}}},
+      scales:{
+        x:{grid:{color:gc},ticks:{color:tc,font:{size:11}}},
+        y:{grid:{color:gc},ticks:{color:tc,font:{size:11},callback:v=>v+'%'},min:0,max:pr?56:38}
+      }}
+  });
+}
+
+function buildI() {
+  const s=yrStart2();
+  const ii=IY.reduce((a,y,i)=>{if(y>=s)a.push(i);return a;},[]);
+  const lb=ii.map(i=>IY[i]);
+  const hist=ii.map(i=>IHIST[i]);
+  const proj=ii.map(i=>IPROJ[i]);
+  const phases=ii.map(i=>IPHASE[i]);
+
+  const phPlugin={id:'phP',beforeDraw(chart){
+    const{ctx,chartArea,scales}=chart;
+    ctx.save();
+    lb.forEach((y,j)=>{
+      const ph=phases[j]; if(!ph)return;
+      const x0=scales.x.getPixelForValue(j)-scales.x.width/lb.length*.5;
+      const w=scales.x.width/lb.length;
+      ctx.fillStyle=ph===1?'rgba(200,68,26,0.1)':'rgba(42,82,152,0.08)';
+      ctx.fillRect(x0,chartArea.top,w,chartArea.bottom-chartArea.top);
+    });
+    const si=phases.findIndex(p=>p===1),ci=phases.findIndex(p=>p===2);
+    ctx.font='9px DM Sans,sans-serif'; ctx.fillStyle='#7a7570';
+    if(si>=0){const x=scales.x.getPixelForValue(si);ctx.fillText('Immigration surge',x-20,chartArea.top+10);}
+    if(ci>=0){const x=scales.x.getPixelForValue(ci);ctx.fillText('Immigration pivot',x-20,chartArea.top+10);}
+    // 485k peak reference line
+    const y485=scales.y.getPixelForValue(485);
+    ctx.save();
+    ctx.strokeStyle='rgba(200,68,26,0.5)';ctx.lineWidth=1;ctx.setLineDash([4,3]);
+    ctx.beginPath();ctx.moveTo(chartArea.left,y485);ctx.lineTo(chartArea.right,y485);ctx.stroke();
+    ctx.fillStyle='#c8441a';ctx.font='9px DM Sans,sans-serif';
+    ctx.fillText('2024 peak: 485k',chartArea.right-72,y485-4);
+    ctx.setLineDash([]);
+    ctx.restore();
+  }};
+
+  if(iC)iC.destroy();
+  iC=new Chart(document.getElementById('iC'),{
+    type:'bar', plugins:[phPlugin],
+    data:{labels:lb,datasets:[
+      {label:'Historical',data:hist,backgroundColor:ii.map(i=>IPHASE[i]===1?'rgba(200,68,26,0.75)':'#1a7a4a'),borderRadius:2,borderSkipped:false,yAxisID:'y'},
+      {label:'Projected',data:proj,backgroundColor:'#a8d5bc',borderRadius:2,borderSkipped:false,yAxisID:'y'},
+      {type:'line',label:'Fertility rate',data:ii.map(i=>FERT[i]),borderColor:'#c8441a',borderWidth:2,borderDash:[4,3],pointRadius:3,pointBackgroundColor:'#c8441a',fill:false,tension:.3,yAxisID:'y2',spanGaps:false}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{...tt2,callbacks:{label:c=>{
+        if(c.dataset.label==='Fertility rate') return c.parsed.y!=null?` Fertility rate: ${c.parsed.y.toFixed(2)} births/woman`:'';
+        return c.parsed.y!=null?` ${c.parsed.y}k arrivals`:'';
+      }}}},
+      scales:{
+        x:{grid:{color:gc},ticks:{color:tc,font:{size:11},maxTicksLimit:10}},
+        y:{grid:{color:gc},ticks:{color:tc,font:{size:11},callback:v=>v+'k'},min:0,max:550,position:'left'},
+        y2:{grid:{display:false},ticks:{color:'#c8441a',font:{size:11},callback:v=>v.toFixed(1)},position:'right',min:0.8,max:2.2,
+          title:{display:true,text:'births/woman',color:'#c8441a',font:{size:10}}}
+      }}
+  });
+}
+
+function refresh(){buildA();buildD();buildI();}
+
+// ── LABOUR FORCE PARTICIPATION + GDP ─────────────────────────
+const LFP_YEARS=[2008,2010,2012,2014,2016,2018,2020,2022,2024,2026,2028,2030];
+const LFP_HIST= [67.3,66.8,66.5,64.2,63.7,63.3,61.8,65.3,64.2,null,null,null];
+const LFP_PROJ= [null,null,null,null,null,null,null,null,64.2,63.5,62.8,62.1];
+
+const GDP_YEARS=[2000,2002,2004,2006,2008,2010,2012,2014,2016,2018,2020,2022,2024];
+const GDP_HIST= [34200,35100,37200,39800,41000,39200,41500,43200,43800,44800,41200,45100,44400];
+
+new Chart(document.getElementById('lfpC'),{
+  type:'line',
+  data:{labels:LFP_YEARS,datasets:[
+    {label:'Historical',data:LFP_HIST,borderColor:'#2a5298',backgroundColor:'rgba(42,82,152,0.07)',borderWidth:2.5,pointRadius:3,fill:true,tension:.3,spanGaps:false},
+    {label:'Projected',data:LFP_PROJ,borderColor:'#2a5298',borderDash:[5,3],borderWidth:2,pointRadius:3,pointBackgroundColor:'#2a5298',fill:false,tension:.3,spanGaps:false}
+  ]},
+  options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{...tt2,callbacks:{label:c=>c.parsed.y!=null?` ${c.parsed.y.toFixed(1)}%`:''}}},
+    scales:{
+      x:{grid:{color:gc},ticks:{color:tc,font:{size:10},maxTicksLimit:7}},
+      y:{grid:{color:gc},ticks:{color:tc,font:{size:10},callback:v=>v+'%'},min:60,max:68,
+        annotation:{drawTime:'afterDatasetsDraw'}}
+    }}
+});
+
+new Chart(document.getElementById('gdpC'),{
+  type:'line',
+  data:{labels:GDP_YEARS,datasets:[
+    {label:'GDP per capita',data:GDP_HIST,borderColor:'#1a7a4a',backgroundColor:'rgba(26,122,74,0.07)',borderWidth:2.5,pointRadius:3,fill:true,tension:.3}
+  ]},
+  options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{...tt2,callbacks:{label:c=>c.parsed.y!=null?` $${c.parsed.y.toLocaleString()}`:''}}},
+    scales:{
+      x:{grid:{color:gc},ticks:{color:tc,font:{size:10},maxTicksLimit:8}},
+      y:{grid:{color:gc},ticks:{color:tc,font:{size:10},callback:v=>'$'+Math.round(v/1000)+'k'},min:32000,max:48000}
+    }}
+});
+
+// ── DONUT CHART ──────────────────────────────────────────────
+new Chart(document.getElementById('donutC'), {
+  type: 'doughnut',
+  data: {
+    labels: ['Skilled workers', 'Family members', 'Refugees'],
+    datasets: [{
+      data: [58, 26, 16],
+      backgroundColor: ['#1a7a4a', '#2a5298', '#b8860b'],
+      borderColor: '#fdfcf9',
+      borderWidth: 3,
+      hoverOffset: 6
+    }]
+  },
+  options: {
+    responsive: false,
+    maintainAspectRatio: false,
+    cutout: '60%',
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        ...tt2,
+        callbacks: { label: c => ` ${c.label}: ${c.parsed}%` }
+      }
+    }
+  }
+});
+
+// ── SECTOR TOOLTIPS ──────────────────────────────────────────
+const stip = document.getElementById('stip');
+document.querySelectorAll('.sector-item[data-tip]').forEach(el => {
+  el.addEventListener('mouseenter', function(e) {
+    stip.textContent = this.dataset.tip;
+    stip.style.opacity = '1';
+  });
+  el.addEventListener('mousemove', function(e) {
+    const x = e.clientX + 14, y = e.clientY - 10;
+    const overRight = x + 290 > window.innerWidth;
+    stip.style.left = (overRight ? e.clientX - 294 : x) + 'px';
+    stip.style.top  = Math.max(y - 60, 8) + 'px';
+  });
+  el.addEventListener('mouseleave', () => { stip.style.opacity = '0'; });
+});
+
+initMap();buildA();buildD();buildI();
+</script>
+</body>
+</html>
